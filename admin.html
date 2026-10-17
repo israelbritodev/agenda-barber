@@ -1,0 +1,271 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painel</title><link rel="stylesheet" href="style.css"></head><body><div class="w">
+<h1>Painel do barbeiro</h1>
+<!-- LOGIN: some depois de entrar -->
+<div class="c" id="login"><input id="em" type="email" placeholder="E-mail"><input id="pw" type="password" placeholder="Senha">
+  <button class="btn" id="in">Entrar</button> <span id="err"></span>
+  <!-- Botão de cadastro: o href já está escrito aqui para funcionar MESMO se o JavaScript falhar.
+  Se mudar o número/mensagem, altere também aqui (o script abaixo reaplica os valores das constantes). -->
+  <p class="mu">Ainda não tem cadastro?</p>
+  <a class="btn g" id="signup" target="_blank" rel="noopener" href="https://wa.me/5581986308252?text=Sou%20Barbeiro%20e%20Quero%20ter%20um%20site%20de%20agendamento%20para%20minha%20barbearia">Quero ter meu site · WhatsApp</a></div>
+<!-- PAINEL: cada <div class="c"> é uma seção preenchida por uma função renderXxx() no script. -->
+<div id="panel" hidden>
+  <p><a href="index.html" target="_blank">Ver site</a> · <a href="#" id="out">Sair</a></p>
+  <nav class="tabs"><a href="#agenda">Agenda</a><a href="#clientes">Clientes</a><a href="#site">Site</a><a href="#galeria">Galeria</a><a href="#horarios">Horários</a><a href="#servicos">Serviços</a><a href="#manutencao">Manutenção</a></nav>
+
+  <!-- AGENDA: calendário (mais escuro = mais agendamentos) + lista com busca e filtros -->
+  <div class="two"><div class="c" id="agenda"><h2>Calendário</h2>
+    <div class="row nav"><button class="btn g" id="prev">‹</button><b id="calT" style="margin:0"></b><button class="btn g" id="next">›</button></div>
+    <div class="cal" id="cal"></div><p class="mu">Quanto mais forte o dourado, mais agendamentos no dia. Clique num dia para filtrar a lista.</p></div>
+  <div class="c"><h2>Agendamentos</h2>
+    <div class="bar"><input id="q" placeholder="Buscar nome, telefone ou serviço"><select id="fs"><option value="">Todos os status</option><option>agendado</option><option>feito</option><option>cancelado</option></select>
+      <input type="date" id="fd"><button class="btn g" id="clr">Limpar filtros</button></div><div id="bk"></div></div></div>
+
+  <!-- CRM: todo cliente que já agendou é salvo automaticamente (nome + telefone) -->
+  <div class="c" id="clientes"><h2>Clientes (CRM)</h2><input id="cq" placeholder="Buscar cliente por nome ou telefone"><div id="crm"></div></div>
+
+  <div class="c" id="site"><h2>Textos, imagens e cores do site</h2><div id="fields"></div><button class="btn" id="saveS">Salvar</button> <span id="okS"></span></div>
+  <div class="c" id="galeria"><h2>Fotos e vídeos</h2><input type="file" id="up" accept="image/*,video/*" multiple><div class="gal" id="works"></div></div>
+  <div class="c" id="horarios"><h2>Horários de atendimento</h2><div id="week"></div><button class="btn" id="saveA">Salvar horários</button> <span id="okA"></span>
+    <h2 style="margin-top:22px">Folgas / feriados</h2><div id="off"></div><input type="date" id="offD"><input id="offR" placeholder="Motivo (opcional)"><button class="btn g" id="addOff">Bloquear dia</button></div>
+  <div class="c" id="servicos"><h2>Serviços</h2><div id="svc"></div>
+    <div class="bar"><input id="sn" placeholder="Nome"><input id="sp" type="number" placeholder="Preço (R$)"><input id="sd" type="number" placeholder="Duração (min)" value="40"></div><button class="btn g" id="addS">Adicionar serviço</button></div>
+  <div class="c" id="manutencao"><h2>Manutenção</h2><p class="mu">O plano grátis do Supabase tem 500 MB de banco e 1 GB de arquivos. Agendamentos e clientes antigos são apagados automaticamente toda semana (prazos na seção Site). Você também pode limpar agora. As fotos da galeria não são apagadas.</p><button class="btn g" id="clean">Limpar dados antigos agora</button></div>
+</div></div>
+<div class="toast" id="toast" hidden></div>
+<script type="module">
+import { sb, loadSettings, esc } from './lib.js';
+const $ = (id) => document.getElementById(id); // atalho para document.getElementById
+
+// CONTATO PARA NOVOS BARBEIROS: quem não tem cadastro é enviado ao WhatsApp com esta mensagem.
+// Para trocar o número ou o texto, altere SOMENTE estas duas linhas (formato: DDI+DDD+número, sem + ou espaços).
+const SIGNUP_WA_NUMBER = '5581986308252';
+const SIGNUP_WA_MESSAGE = 'Sou Barbeiro e Quero ter um site de agendamento para minha barbearia';
+// signupLink(): monta o link do WhatsApp; encodeURIComponent protege acentos e espaços do texto.
+const signupLink = () => `https://wa.me/${SIGNUP_WA_NUMBER}?text=${encodeURIComponent(SIGNUP_WA_MESSAGE)}`;
+
+// FIELDS: LISTA DOS CAMPOS EDITÁVEIS DO SITE. >>> Para criar um campo novo: adicione UMA linha aqui
+// e use data-text="chave" (ou data-bg/data-link) no HTML. Não precisa mudar banco nem outras funções.
+// type: text | textarea | number | color | image (image envia arquivo e guarda a URL)
+const FIELDS = [
+  { key: 'title', label: 'Nome da barbearia', type: 'text' },
+  { key: 'subtitle', label: 'Frase de destaque', type: 'text' },
+  { key: 'hero_url', label: 'Imagem de capa', type: 'image' },
+  { key: 'book_button', label: 'Texto do botão de agendar', type: 'text' },
+  { key: 'gallery_title', label: 'Título da galeria', type: 'text' },
+  { key: 'about_title', label: 'Título do "Sobre"', type: 'text' },
+  { key: 'about', label: 'Texto "Sobre"', type: 'textarea' },
+  { key: 'address', label: 'Endereço', type: 'text' },
+  { key: 'whatsapp', label: 'WhatsApp (com DDI+DDD, ex.: 5581999999999)', type: 'text' },
+  { key: 'instagram', label: 'Instagram (sem @)', type: 'text' },
+  { key: 'footer', label: 'Rodapé', type: 'text' },
+  { key: 'color_accent', label: 'Cor de destaque', type: 'color' },
+  { key: 'color_bg', label: 'Cor de fundo', type: 'color' },
+  { key: 'color_text', label: 'Cor do texto', type: 'color' },
+  { key: 'slot_minutes', label: 'Intervalo entre horários oferecidos (min)', type: 'number' },
+  { key: 'days_ahead', label: 'Quantos dias à frente o cliente pode agendar', type: 'number' },
+  { key: 'retention_bookings_days', label: 'Apagar agendamentos com mais de (dias)', type: 'number' },
+  { key: 'retention_customers_days', label: 'Apagar clientes sem agendamento e cadastrados há mais de (dias)', type: 'number' },
+];
+const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']; // índice = getDay() do JavaScript
+
+// upload(): envia um arquivo ao Storage e devolve a URL pública. Usada por capa e galeria.
+// O nome ganha timestamp para nunca sobrescrever arquivo existente.
+// shrink(): reduz fotos para no máx. 1600 px e JPEG 82% antes de enviar. Uma foto de celular (4–8 MB) vira ~300 KB:
+// é o que mais protege o 1 GB de Storage do plano grátis. GIF/SVG não são alterados.
+async function shrink(file) {
+  if (!file.type.startsWith('image/') || /gif|svg/.test(file.type)) return file;
+  const img = await createImageBitmap(file), k = Math.min(1, 1600 / Math.max(img.width, img.height));
+  const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.82));
+  return blob && blob.size < file.size ? new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : file;
+}
+// upload(): comprime (fotos), recusa vídeo acima de 25 MB, envia ao Storage e devolve a URL pública.
+async function upload(file) {
+  if (file.type.startsWith('video/') && file.size > 25 * 1024 * 1024) throw new Error('Vídeo acima de 25 MB. Comprima antes de enviar.');
+  file = await shrink(file);
+  const path = Date.now() + '-' + file.name.replace(/[^\w.]/g, '_');
+  const { error } = await sb.storage.from('media').upload(path, file);
+  if (error) throw error;
+  return sb.storage.from('media').getPublicUrl(path).data.publicUrl;
+}
+// delFile(): apaga o arquivo do Storage a partir da URL pública. Sem isso, fotos removidas ficariam "órfãs" ocupando espaço.
+async function delFile(url) {
+  const p = (url || '').split('/media/')[1];
+  if (p) await sb.storage.from('media').remove([decodeURIComponent(p)]);
+}
+
+// LOGIN: entra com e-mail/senha. A sessão fica salva no navegador (não precisa logar toda vez).
+// Fluxo: 1) pergunta ao banco se o e-mail é de um barbeiro cadastrado (função is_barber, ver supabase.sql);
+//        2) se NÃO for, abre o WhatsApp de contato; 3) se for, valida a senha e abre o painel.
+$('in').onclick = async () => {
+  const email = em.value.trim().toLowerCase();
+  if (!email) return $('err').textContent = 'Digite seu e-mail.';
+  const { data: cadastrado } = await sb.rpc('is_barber', { p_email: email });
+  if (!cadastrado) {
+    $('err').textContent = 'Cadastro não encontrado. Abrindo o WhatsApp…';
+    setTimeout(() => { location.href = signupLink(); }, 1200); // pequena pausa para a pessoa ler o aviso
+    return;
+  }
+  const { error } = await sb.auth.signInWithPassword({ email, password: pw.value });
+  error ? $('err').textContent = 'Senha incorreta' : boot();
+};
+// Link permanente para quem ainda não tem cadastro (mesmo destino do fluxo acima).
+$('signup').href = signupLink();
+$('out').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+// toast(): aviso rápido na tela. Sem isso uma gravação que falha parece "não fazer nada".
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.id); toast.id = setTimeout(() => t.hidden = true, 2200); }
+// saved(): mostra ✅ ou o erro vindo do Supabase. IMPORTANTE: o comando do Supabase só é ENVIADO quando recebe
+// "await" — sem await a gravação nunca acontece (era esse o bug da legenda e do status).
+async function saved(promise, okMsg = 'Salvo ✅') { const { error } = await promise; toast(error ? 'Erro: ' + error.message : okMsg); return !error; }
+const brDate = (d) => d.split('-').reverse().join('/');                          // 2026-10-17 -> 17/10/2026
+const hm = (t) => t.slice(0, 5);                                                // 09:00:00 -> 09:00
+const addMin = (t, m) => { const x = +t.slice(0, 2) * 60 + +t.slice(3, 5) + m; return String(x / 60 | 0).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0'); };
+
+let ALL = [];                                       // todos os agendamentos (carregados uma vez; calendário, lista e CRM usam esta cópia)
+let CAL = new Date(); CAL.setDate(1);               // mês exibido no calendário
+
+// boot(): mostra o painel se houver sessão e carrega cada seção. Nova seção = nova função + uma chamada aqui.
+async function boot() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+  $('login').hidden = true; $('panel').hidden = false;
+  renderFields(await loadSettings()); renderWorks(); renderWeek(); renderOff(); renderServices(); loadBookings();
+}
+
+// loadBookings(): busca agendamentos e redesenha tudo que depende deles.
+async function loadBookings() {
+  const { data } = await sb.from('bookings').select().order('date').order('time'); ALL = data || [];
+  renderCalendar(); renderBookings(); renderCRM();
+}
+
+// SEÇÃO 1 — Campos do site (upsert de todos os FIELDS de uma vez).
+function renderFields(S) {
+  $('fields').innerHTML = FIELDS.map((f) => {
+    const v = esc(S[f.key] || '');
+    const input = f.type === 'textarea' ? `<textarea rows="4" data-k="${f.key}">${v}</textarea>`
+      : f.type === 'image' ? `<input type="hidden" data-k="${f.key}" value="${v}">${v ? `<img src="${v}" height="60"> ` : ''}<input type="file" accept="image/*" data-file="${f.key}">`
+      : `<input type="${f.type}" data-k="${f.key}" value="${v}">`;
+    return `<label class="mu">${f.label}</label>${input}`;
+  }).join('');
+  $('saveS').onclick = async () => {
+    for (const fi of document.querySelectorAll('[data-file]')) if (fi.files[0]) {
+      const el = document.querySelector(`[data-k="${fi.dataset.file}"]`), old = el.value;
+      try { el.value = await upload(fi.files[0]); await delFile(old); } catch (e) { return toast('Erro: ' + e.message); } // troca a imagem e apaga a antiga
+    }
+    const rows = [...document.querySelectorAll('[data-k]')].map((el) => ({ key: el.dataset.k, value: el.value }));
+    if (await saved(sb.from('settings').upsert(rows))) renderFields(await loadSettings());
+  };
+}
+
+// SEÇÃO 2 — Galeria: envio múltiplo, legenda com botão "Salvar" (e Enter), remoção.
+async function renderWorks() {
+  $('up').onchange = async () => {
+    for (const f of $('up').files) {
+      try { await saved(sb.from('works').insert({ url: await upload(f), type: f.type.startsWith('video') ? 'video' : 'image' }), 'Enviado ✅'); }
+      catch (e) { toast('Erro: ' + e.message); }
+    }
+    $('up').value = ''; renderWorks();
+  };
+  const { data } = await sb.from('works').select().order('created_at', { ascending: false });
+  $('works').innerHTML = (data || []).map((w) => `<div>${w.type === 'video' ? `<video src="${esc(w.url)}" muted></video>` : `<img src="${esc(w.url)}">`}
+    <input id="cap${w.id}" value="${esc(w.caption)}" placeholder="Legenda"><button class="btn" data-cap="${w.id}">Salvar legenda</button><button class="btn g" data-del="${w.id}" data-u="${esc(w.url)}">Remover</button></div>`).join('');
+  document.querySelectorAll('[data-cap]').forEach((b) => b.onclick = () => saved(sb.from('works').update({ caption: $('cap' + b.dataset.cap).value }).eq('id', b.dataset.cap), 'Legenda salva ✅'));
+  // Enter salva a legenda. Atenção: handler onkeydown NÃO pode devolver false (cancelaria a digitação), por isso o if com chaves.
+  document.querySelectorAll('[id^=cap]').forEach((i) => i.onkeydown = (e) => { if (e.key === 'Enter') i.nextElementSibling.click(); });
+  document.querySelectorAll('[data-del]').forEach((b) => b.onclick = async () => { if (await saved(sb.from('works').delete().eq('id', b.dataset.del), 'Removido')) await delFile(b.dataset.u); renderWorks(); });
+}
+
+// SEÇÃO 3 — Horário semanal (apaga e recria ao salvar).
+async function renderWeek() {
+  const { data } = await sb.from('availability').select(); const m = Object.fromEntries((data || []).map((a) => [a.weekday, a]));
+  $('week').innerHTML = DAYS.map((d, i) => `<div class="row"><label><input type="checkbox" id="c${i}" ${m[i] ? 'checked' : ''}> ${d}</label>
+    <span><input type="time" id="a${i}" value="${m[i] ? hm(m[i].start_time) : '09:00'}" style="width:auto"> às <input type="time" id="b${i}" value="${m[i] ? hm(m[i].end_time) : '18:00'}" style="width:auto"></span></div>`).join('');
+  $('saveA').onclick = async () => {
+    await sb.from('availability').delete().gte('weekday', 0);
+    const rows = DAYS.map((_, i) => $('c' + i).checked && { weekday: i, start_time: $('a' + i).value, end_time: $('b' + i).value }).filter(Boolean);
+    rows.length ? await saved(sb.from('availability').insert(rows)) : toast('Salvo (sem dias abertos)');
+  };
+}
+
+// SEÇÃO 4 — Folgas.
+async function renderOff() {
+  const { data } = await sb.from('days_off').select().order('date');
+  $('off').innerHTML = (data || []).map((o) => `<div class="row"><span>${brDate(o.date)} ${esc(o.reason)}</span><button class="btn g" data-d="${o.date}">Liberar</button></div>`).join('');
+  document.querySelectorAll('[data-d]').forEach((b) => b.onclick = async () => { await saved(sb.from('days_off').delete().eq('date', b.dataset.d), 'Dia liberado'); renderOff(); });
+  $('addOff').onclick = async () => { if (!$('offD').value) return; await saved(sb.from('days_off').upsert({ date: $('offD').value, reason: $('offR').value }), 'Dia bloqueado'); renderOff(); };
+}
+
+// SEÇÃO 5 — Serviços (nome, preço, DURAÇÃO). A duração define quanto tempo da agenda o serviço ocupa.
+async function renderServices() {
+  const { data } = await sb.from('services').select().order('name');
+  $('svc').innerHTML = (data || []).map((s) => `<div class="row"><span>${esc(s.name)} · R$${s.price ?? '-'} · ${s.duration_min || 40} min</span><button class="btn g" data-s="${s.id}">Excluir</button></div>`).join('');
+  document.querySelectorAll('[data-s]').forEach((b) => b.onclick = async () => { await saved(sb.from('services').delete().eq('id', b.dataset.s), 'Excluído'); renderServices(); });
+  $('addS').onclick = async () => {
+    if (!$('sn').value) return;
+    await saved(sb.from('services').insert({ name: $('sn').value, price: $('sp').value || null, duration_min: +$('sd').value || 40 }), 'Serviço adicionado ✅');
+    $('sn').value = $('sp').value = ''; renderServices();
+  };
+}
+
+// SEÇÃO 6 — Calendário mensal. A cor do dia vai de claro a forte conforme a quantidade de agendamentos
+// (cancelados não contam). Clicar num dia preenche o filtro de data da lista.
+function renderCalendar() {
+  const y = CAL.getFullYear(), m = CAL.getMonth(), first = new Date(y, m, 1).getDay(), total = new Date(y, m + 1, 0).getDate();
+  $('calT').textContent = CAL.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const cnt = {}; ALL.filter((b) => b.status !== 'cancelado').forEach((b) => cnt[b.date] = (cnt[b.date] || 0) + 1);
+  const key = (d) => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const max = Math.max(1, ...Array.from({ length: total }, (_, i) => cnt[key(i + 1)] || 0)); // maior lotação do mês = cor mais forte
+  let h = DAYS.map((d) => `<div class="h">${d}</div>`).join('') + '<div class="e"></div>'.repeat(first);
+  for (let d = 1; d <= total; d++) {
+    const k = key(d), n = cnt[k] || 0, a = n ? 0.2 + 0.75 * n / max : 0, today = k === new Date().toLocaleDateString('sv');
+    h += `<div class="d ${today ? 'today' : ''} ${$('fd').value === k ? 'sel' : ''}" data-k="${k}" style="${n ? `background:rgba(201,164,92,${a});color:${a > .55 ? '#17130b' : 'inherit'}` : ''}">${d}${n ? `<small>${n}</small>` : ''}</div>`;
+  }
+  $('cal').innerHTML = h;
+  document.querySelectorAll('.cal .d').forEach((c) => c.onclick = () => { $('fd').value = c.dataset.k; renderBookings(); renderCalendar(); });
+}
+$('prev').onclick = () => { CAL.setMonth(CAL.getMonth() - 1); renderCalendar(); };
+$('next').onclick = () => { CAL.setMonth(CAL.getMonth() + 1); renderCalendar(); };
+
+// SEÇÃO 7 — Lista de agendamentos com busca (nome/telefone/serviço), status e data. Filtra em memória (rápido, sem nova consulta).
+function renderBookings() {
+  const q = $('q').value.toLowerCase(), fs = $('fs').value, fd = $('fd').value;
+  const list = ALL.filter((b) => (!fs || b.status === fs) && (!fd || b.date === fd) && (!q || `${b.name} ${b.phone} ${b.service}`.toLowerCase().includes(q)));
+  $('bk').innerHTML = list.map((b) => `<div class="row"><span><b>${brDate(b.date)}</b> ${hm(b.time)}–${addMin(b.time, b.duration_min || 40)} · <b>${esc(b.name)}</b> ·
+    <a href="https://wa.me/55${b.phone.replace(/^55/, '')}" target="_blank">${esc(b.phone)}</a><br><span class="mu">${esc(b.service)} · ${b.duration_min} min</span></span>
+    <select data-b="${b.id}" style="width:auto;margin:0">${['agendado', 'feito', 'cancelado'].map((s) => `<option ${b.status === s ? 'selected' : ''}>${s}</option>`).join('')}</select></div>`).join('') || '<p class="mu">Nenhum agendamento encontrado.</p>';
+  document.querySelectorAll('[data-b]').forEach((s) => s.onchange = async () => {
+    if (await saved(sb.from('bookings').update({ status: s.value }).eq('id', s.dataset.b), 'Status atualizado ✅')) {
+      ALL.find((b) => b.id === s.dataset.b).status = s.value; renderCalendar(); renderCRM();   // atualiza contagens sem recarregar tudo
+    }
+  });
+}
+['q', 'fs', 'fd'].forEach((id) => $(id).oninput = () => { renderBookings(); renderCalendar(); });
+$('clr').onclick = () => { $('q').value = $('fs').value = $('fd').value = ''; renderBookings(); renderCalendar(); };
+
+// SEÇÃO 8 — CRM: clientes salvos automaticamente a cada agendamento (trigger do banco). Estatísticas vêm dos agendamentos.
+async function renderCRM() {
+  const { data } = await sb.from('customers').select(); const q = $('cq').value.toLowerCase();
+  const rows = (data || []).map((c) => {
+    const mine = ALL.filter((b) => b.phone === c.phone && b.status !== 'cancelado');
+    return { ...c, total: mine.length, feitos: mine.filter((b) => b.status === 'feito').length, last: mine.length ? mine[mine.length - 1].date : '' };
+  }).filter((c) => !q || `${c.name} ${c.phone}`.toLowerCase().includes(q)).sort((a, b) => b.last.localeCompare(a.last));
+  $('crm').innerHTML = rows.map((c) => `<div class="row"><span><b>${esc(c.name)}</b> · <a href="https://wa.me/${c.phone.startsWith('55') ? c.phone : '55' + c.phone}" target="_blank">${esc(c.phone)}</a><br>
+    <span class="mu">${c.total} agendamento(s) · ${c.feitos} concluído(s)${c.last ? ' · último: ' + brDate(c.last) : ''}</span></span>
+    <input data-n="${c.phone}" value="${esc(c.notes)}" placeholder="Observações (ex.: prefere degradê)" style="flex:1;min-width:180px;margin:0"></div>`).join('') || '<p class="mu">Nenhum cliente ainda.</p>';
+  document.querySelectorAll('[data-n]').forEach((i) => i.onchange = () => saved(sb.from('customers').update({ notes: i.value }).eq('phone', i.dataset.n), 'Observação salva ✅'));
+}
+$('cq').oninput = renderCRM;
+
+// SEÇÃO 9 — Manutenção: chama cleanup_now (só admin) para apagar dados antigos e mostra o que foi removido.
+$('clean').onclick = async () => {
+  if (!confirm('Apagar agora agendamentos e clientes antigos, conforme os prazos configurados?')) return;
+  const { data, error } = await sb.rpc('cleanup_now');
+  toast(error ? 'Erro: ' + error.message : `Removidos: ${data.agendamentos} agendamentos, ${data.clientes} clientes, ${data.folgas} folgas`);
+  if (!error) loadBookings();
+};
+
+boot(); // ao abrir, tenta restaurar a sessão salva
+</script></body></html>

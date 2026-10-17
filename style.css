@@ -1,0 +1,152 @@
+/* =====================================================================
+   STYLE — visual de barbearia clássica. Usado por index, agendar e admin.
+   Paleta e fontes ficam nas variáveis (:root); mudou ali, muda o site todo.
+   As cores --ac/--bg/--tx também podem ser trocadas pelo admin (ver lib.js).
+   ===================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700;800&family=Inter:wght@400;500;600&display=swap');
+
+:root{
+  --bg:#0e0d0c;            /* fundo geral */
+  --tx:#f2ece0;            /* texto principal (creme) */
+  --ac:#c9a45c;            /* dourado de destaque */
+  --card:#1a1816;          /* fundo dos cartões */
+  --bd:#2e2a25;            /* bordas */
+  --mu:#a39b8d;            /* texto secundário */
+  --serif:'Playfair Display',Georgia,'Times New Roman',serif;   /* títulos (fallback se a fonte não carregar) */
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif; /* textos e formulários */
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--sans);line-height:1.6}
+[hidden]{display:none!important}  /* garante que "hidden" vença qualquer display definido abaixo */
+a{color:var(--ac)}
+
+/* Listra de poste de barbeiro no topo de TODAS as páginas: identidade visual barata e marcante. */
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:5px;z-index:200;
+  background:repeating-linear-gradient(115deg,#b3261e 0 14px,#f2ece0 14px 28px,#1d4a8a 28px 42px)}
+
+h1,h2{font-family:var(--serif);line-height:1.15;margin:0 0 12px}
+h1{font-size:clamp(34px,7vw,64px);font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+h2{font-size:clamp(24px,4vw,34px);font-weight:700}
+.w{max-width:1000px;margin:0 auto;padding:20px 18px}   /* container central */
+.mu{color:var(--mu)}
+
+/* ---------- CAPA (index) ---------- */
+.hero{position:relative;min-height:88vh;display:flex;align-items:center;justify-content:center;text-align:center;
+  background:#1a1714 center/cover no-repeat}               /* a imagem real entra via data-bg (inline) */
+.hero::before{content:"";position:absolute;inset:0;       /* película escura para o texto ficar legível sobre qualquer foto */
+  background:radial-gradient(ellipse at center,#0006,#0e0d0cf2 85%)}
+.hero .w{position:relative;padding-top:60px;padding-bottom:60px}
+.hero .mu{font-size:clamp(16px,2.5vw,21px);margin:0 0 28px;letter-spacing:.12em;text-transform:uppercase}
+.ornament{display:block;width:90px;height:2px;margin:0 auto 22px;background:var(--ac)}  /* filete dourado decorativo */
+
+/* ---------- BOTÕES ---------- */
+.btn{display:inline-block;background:var(--ac);color:#17130b;border:0;border-radius:4px;padding:14px 28px;
+  font:600 14px var(--sans);letter-spacing:.14em;text-transform:uppercase;text-decoration:none;cursor:pointer;transition:.2s}
+.btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.btn.g{background:transparent;color:var(--tx);border:1px solid var(--ac)}   /* botão secundário (contorno) */
+.btn.g:hover{background:var(--ac);color:#17130b}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.barber-btn{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:12px;z-index:150;background:#000b;color:#fff;
+  border:1px solid #ffffff55;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:600;letter-spacing:.06em;
+  text-decoration:none;backdrop-filter:blur(6px)}                          /* botão fixo "Sou Barbeiro" */
+.barber-btn:hover{background:var(--ac);color:#111}
+
+/* ---------- SEÇÕES DA HOME ---------- */
+section{padding:46px 0}
+.title{text-align:center;margin-bottom:28px}
+.title::after{content:"";display:block;width:60px;height:2px;background:var(--ac);margin:12px auto 0}
+.svcs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}   /* cartões de serviço */
+.svc{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:22px;text-align:center}
+.svc b{display:block;font:700 20px var(--serif)}
+.svc span{color:var(--ac);font-size:22px;font-weight:600}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}  /* galeria responsiva */
+.gal img,.gal video{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:8px;display:block;transition:.35s}
+.gal img:hover,.gal video:hover{transform:scale(1.03);filter:brightness(1.1)}
+.about{text-align:center;max-width:680px;margin:0 auto;font-size:17px;white-space:pre-wrap}
+.contact{text-align:center}.contact .btn{margin:6px}
+footer.w{text-align:center;border-top:1px solid var(--bd);margin-top:20px;font-size:13px}
+
+/* ---------- AGENDAR + ADMIN (cartões e formulários) ---------- */
+.c{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:20px;margin-bottom:16px}
+.c h2{font-size:22px;padding-bottom:10px;margin-bottom:14px;border-bottom:1px solid var(--bd)}
+.c b{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ac);margin:12px 0 8px}  /* rótulos dos passos */
+label.mu{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin:10px 0 4px}
+input,select,textarea{width:100%;padding:12px;margin:0 0 10px;background:#0f0e0d;color:var(--tx);border:1px solid var(--bd);
+  border-radius:6px;font:15px var(--sans)}
+input:focus,select:focus,textarea:focus{outline:0;border-color:var(--ac)}
+input[type=checkbox]{width:auto;margin-right:6px}input[type=color]{height:44px;padding:4px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}    /* botões de escolha: serviço / dia / hora */
+.chip{padding:10px 14px;background:#0f0e0d;color:var(--tx);border:1px solid var(--bd);border-radius:6px;cursor:pointer;font:500 14px var(--sans);transition:.15s}
+.chip:hover:not(:disabled){border-color:var(--ac)}
+.chip.on{background:var(--ac);color:#17130b;border-color:var(--ac);font-weight:600}
+.chip:disabled{opacity:.28;text-decoration:line-through;cursor:not-allowed}
+.row{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--bd);align-items:center;flex-wrap:wrap}
+.row:last-child{border-bottom:0}
+.row input[type=time]{width:auto;margin:0}
+.c .gal{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-top:12px}   /* galeria menor dentro do admin */
+.c .gal img,.c .gal video{aspect-ratio:1}
+.c .gal .btn{width:100%;padding:8px;margin-top:6px;font-size:11px}
+
+/* ---------- Galeria com legenda (index) ---------- */
+.gal figure{margin:0}
+.gal figcaption{font-size:13px;color:var(--mu);padding:6px 2px 0;text-align:center}
+
+/* ---------- Admin: menu, calendário, aviso (toast) ---------- */
+.tabs{position:sticky;top:5px;z-index:90;display:flex;gap:6px;overflow-x:auto;padding:8px 0;background:var(--bg)}
+.tabs a{white-space:nowrap;padding:8px 14px;border:1px solid var(--bd);border-radius:20px;text-decoration:none;color:var(--tx);font-size:13px}
+.tabs a:hover{border-color:var(--ac);color:var(--ac)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}                 /* grade do calendário: 7 colunas = dias da semana */
+.cal .h{text-align:center;font-size:11px;color:var(--mu);padding:4px 0}
+.cal .d{aspect-ratio:1;border:1px solid var(--bd);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;font-size:13px;line-height:1.1;background:#0f0e0d;color:var(--tx)}   /* cor de fundo ajustada por JS conforme nº de agendamentos */
+.cal .d small{font-size:10px;opacity:.85}.cal .d.today{outline:2px solid var(--ac)}.cal .d.sel{box-shadow:0 0 0 2px #fff}
+.cal .e{border:0;background:none;cursor:default}
+.bar{display:flex;gap:8px;flex-wrap:wrap}.bar>*{flex:1;min-width:130px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ac);color:#17130b;padding:10px 18px;border-radius:8px;font-weight:600;z-index:300}
+
+/* =====================================================================
+   RESPONSIVO — celulares (até 600px), tablets (601–1024px), desktop (1000px+) e telas grandes.
+   Fica no FIM do arquivo de propósito: sobrescreve as regras acima sem alterá-las.
+   ===================================================================== */
+html{-webkit-text-size-adjust:100%}                       /* iPhone não aumenta o texto sozinho ao girar a tela */
+body{overflow-x:hidden}                                   /* nada pode criar rolagem lateral */
+img,video{max-width:100%}
+input,select,textarea{font-size:16px}                     /* 16px: evita o zoom automático do iPhone ao tocar num campo */
+.btn,.chip,select,input:not([type=checkbox]){min-height:44px}   /* alvo mínimo de toque confortável (recomendação Apple/Google) */
+.w{padding-left:max(18px,env(safe-area-inset-left));padding-right:max(18px,env(safe-area-inset-right))}  /* respeita "notch" */
+.hero{min-height:80vh;min-height:80svh}                   /* svh = altura real visível no celular (sem barra do navegador) */
+.two{display:grid;gap:16px;grid-template-columns:1fr}.two>.c{margin:0}   /* calendário + lista: 1 coluna no celular */
+.row.nav{flex-direction:row;flex-wrap:nowrap}
+
+@media (max-width:600px){                                 /* ----- CELULARES ----- */
+  .w{padding-top:14px;padding-bottom:14px}
+  h1{letter-spacing:.02em}.hero .mu{letter-spacing:.06em}
+  section{padding:28px 0}
+  .gal{grid-template-columns:repeat(2,1fr);gap:6px}       /* galeria em 2 colunas */
+  .svcs{grid-template-columns:1fr 1fr;gap:8px}
+  .hero .btn,#ok,#saveS,#saveA,#addS,#addOff,#in,#clean{width:100%}   /* ações principais ocupam a largura toda */
+  .c{padding:14px;border-radius:10px}
+  .row{flex-direction:column;align-items:stretch}         /* linhas do admin empilham: nada espremido */
+  .row.nav{flex-direction:row;align-items:center}
+  .bar>*{min-width:100%}
+  .cal{gap:3px}.cal .d{font-size:12px;border-radius:6px}.cal .d small{font-size:9px}
+  .barber-btn{font-size:11px;padding:6px 11px}
+  .tabs a{padding:10px 14px}
+  .c .gal{grid-template-columns:repeat(2,1fr)}
+  .toast{width:calc(100% - 28px);text-align:center}
+  .chip{flex:1 1 auto}                                    /* horários preenchem a linha */
+}
+@media (max-width:360px){.svcs{grid-template-columns:1fr}h1{font-size:30px}}   /* celulares muito pequenos */
+@media (max-height:500px) and (orientation:landscape){.hero{min-height:auto}}    /* celular deitado */
+@media (min-width:601px) and (max-width:1024px){          /* ----- TABLETS ----- */
+  .gal{grid-template-columns:repeat(3,1fr)}
+  .c .gal{grid-template-columns:repeat(3,1fr)}
+}
+@media (min-width:1000px){                                /* ----- DESKTOP ----- */
+  .w{max-width:1080px}
+  .two{grid-template-columns:1fr 1fr;align-items:start}   /* calendário e lista lado a lado */
+}
+@media (min-width:1500px){.w{max-width:1240px}.gal{grid-template-columns:repeat(4,1fr)}}   /* telas grandes */
+@media (hover:none){.gal img:hover,.gal video:hover{transform:none;filter:none}.btn:hover{transform:none}}  /* sem efeito "hover" no toque */
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}        /* respeita quem desativa animações */

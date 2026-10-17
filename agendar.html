@@ -1,0 +1,76 @@
+<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💈</text></svg>">
+<title>Agendar</title><link rel="stylesheet" href="style.css"></head><body>
+<a class="barber-btn" href="admin.html">Sou Barbeiro</a>
+<div class="w"><a href="index.html">← Voltar</a><h1 style="font-size:36px;margin-top:14px">Agendar horário</h1>
+<div class="c">
+  <b>1 · Serviço</b><div class="chips" id="sv"></div>
+  <b>2 · Dia</b><div class="chips" id="dy"></div>
+  <b>3 · Horário</b><div class="chips" id="hr"><span class="mu">Escolha o serviço e o dia</span></div>
+  <b>4 · Seus dados</b>
+  <input id="nm" placeholder="Seu nome"><input id="ph" placeholder="WhatsApp com DDD" type="tel">
+  <button class="btn" id="ok">Confirmar agendamento</button><p id="msg"></p>
+</div></div>
+<script type="module">
+import { sb, loadSettings, applySettings, iso } from './lib.js';
+
+// Carrega tudo em paralelo: configurações, serviços ativos, horário semanal e folgas.
+const [S, { data: services }, { data: avail }, { data: off }] = await Promise.all([
+  loadSettings(),
+  sb.from('services').select().eq('active', true),
+  sb.from('availability').select(),
+  sb.from('days_off').select(),
+]);
+applySettings(S);
+
+const step = +S.slot_minutes || 20;     // intervalo entre os horários oferecidos (ex.: 09:00, 09:20, 09:40)
+const ahead = +S.days_ahead || 14;      // quantos dias à frente aparecem
+const weekRule = Object.fromEntries(avail.map((a) => [a.weekday, a]));
+const offSet = new Set(off.map((o) => o.date));
+const svcMap = Object.fromEntries(services.map((s) => [s.name, s])); // busca rápida da duração por nome
+const pick = { service: null, date: null, time: null };
+const toMin = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);           // "09:40:00" -> 580 minutos
+const fmt = (m) => String(m / 60 | 0).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); // 580 -> "09:40"
+
+// chips(): desenha botões de escolha e guarda a opção clicada em pick[key] (usada para serviço, dia e horário).
+function chips(el, options, key, onPick) {
+  el.innerHTML = options.map(([v, label, disabled]) =>
+    `<button class="chip" data-v="${v}" ${disabled ? 'disabled' : ''}>${label}</button>`).join('') || '<span class="mu">Sem opções</span>';
+  el.querySelectorAll('button').forEach((b) => b.onclick = () => {
+    pick[key] = b.dataset.v;
+    el.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    onPick?.();
+  });
+}
+
+chips(sv, services.map((s) => [s.name, `${s.name} · ${s.duration_min || 40}min${s.price ? ' · R$' + s.price : ''}`]), 'service', loadTimes);
+const days = [...Array(ahead)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; })
+  .filter((d) => weekRule[d.getDay()] && !offSet.has(iso(d)));
+chips(dy, days.map((d) => [iso(d), d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })]), 'date', loadTimes);
+
+// loadTimes(): gera horários do dia e bloqueia os que NÃO cabem:
+//  - o atendimento escolhido (início até início+duração) não pode cruzar nenhum agendamento já existente;
+//  - precisa terminar até o fim do expediente; e não pode estar no passado.
+async function loadTimes() {
+  pick.time = null;
+  if (!pick.service || !pick.date) { hr.innerHTML = '<span class="mu">Escolha o serviço e o dia</span>'; return; }
+  const dur = svcMap[pick.service].duration_min || 40;
+  const { data } = await sb.rpc('taken_slots', { d: pick.date });
+  const busy = (data || []).map((r) => [toMin(r.start_time), toMin(r.start_time) + r.dur]); // [início, fim] em minutos
+  const rule = weekRule[new Date(pick.date + 'T12:00').getDay()];
+  const end = toMin(rule.end_time), now = new Date(), isToday = pick.date === iso(now), out = [];
+  for (let m = toMin(rule.start_time); m + dur <= end; m += step) {
+    const clash = busy.some(([s, e]) => m < e && m + dur > s);                 // intervalos se cruzam?
+    const past = isToday && m <= now.getHours() * 60 + now.getMinutes();
+    out.push([fmt(m), fmt(m), clash || past]);
+  }
+  chips(hr, out, 'time');
+}
+
+// CONFIRMAR: o banco recusa sobreposição (restrição no_overlap) mesmo se dois clientes clicarem juntos.
+ok.onclick = async () => {
+  if (!pick.service || !pick.date || !pick.time || !nm.value || !ph.value) return msg.textContent = 'Preencha todos os campos.';
+  const { error } = await sb.from('bookings').insert({ name: nm.value, phone: ph.value, service: pick.service, date: pick.date, time: pick.time });
+  msg.textContent = error ? 'Esse horário acabou de ser ocupado. Escolha outro.' : '✅ Agendado! Te esperamos.';
+  if (error) loadTimes();
+};
+</script></body></html>

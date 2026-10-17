@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="pt-BR">
+  
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💈</text></svg>">
+<title>Barbearia</title><link rel="stylesheet" href="style.css"></head><body>
+<!-- BOTÃO FIXO "Sou Barbeiro": HTML direto (sem data-text) => NÃO editável pelo admin. Leva ao login (ver admin.html). -->
+<a class="barber-btn" href="admin.html">Sou Barbeiro</a>
+
+<!-- Tudo com data-text / data-bg / data-link é preenchido pelo banco (lib.js > applySettings). -->
+<!-- CAPA: foto de fundo (hero_url), título, frase e botão de agendar -->
+<header class="hero" data-bg="hero_url"><div class="w">
+  <span class="ornament"></span>
+  <h1 data-text="title"></h1><p class="mu" data-text="subtitle"></p>
+  <a class="btn" href="agendar.html" data-text="book_button"></a>
+</div></header>
+
+<div class="w">
+  <!-- GALERIA: a "vitrine" do barbeiro; é a primeira coisa depois da capa. Preenchida pelo script. -->
+  <section><h2 class="title" data-text="gallery_title"></h2><div class="gal" id="gal"></div></section>
+
+  <!-- SERVIÇOS E PREÇOS: lidos da tabela services (o barbeiro edita no admin). Escondida se não houver serviços. -->
+  <section id="servicos" hidden><h2 class="title">Serviços</h2><div class="svcs" id="svcs"></div>
+    <p style="text-align:center;margin-top:24px"><a class="btn" href="agendar.html">Agendar agora</a></p></section>
+
+  <!-- SOBRE -->
+  <section><h2 class="title" data-text="about_title"></h2><p class="about mu" data-text="about"></p></section>
+
+  <!-- CONTATO: cada botão some sozinho se o campo estiver vazio no admin -->
+  <section class="contact"><p class="mu" data-text="address"></p>
+    <a class="btn g" data-link="whatsapp" data-prefix="https://wa.me/" target="_blank">WhatsApp</a>
+    <a class="btn g" data-link="instagram" data-prefix="https://instagram.com/" target="_blank">Instagram</a></section>
+</div>
+<footer class="w mu" data-text="footer"></footer>
+
+<script type="module">
+import { sb, loadSettings, applySettings, esc } from './lib.js';
+
+// 1) Textos, imagens e cores vindos do banco são aplicados na página.
+applySettings(await loadSettings());
+
+// 2) GALERIA: mais recentes primeiro. Vídeo usa preload="metadata" (não baixa tudo de uma vez = economiza dados do cliente).
+const { data: works } = await sb.from('works').select().order('created_at', { ascending: false });
+document.getElementById('gal').innerHTML = (works || []).map((w) => `<figure>${w.type === 'video'
+  ? `<video src="${esc(w.url)}" controls playsinline preload="metadata"></video>`
+  : `<img src="${esc(w.url)}" loading="lazy" alt="${esc(w.caption)}">`}${w.caption ? `<figcaption>${esc(w.caption)}</figcaption>` : ''}</figure>`).join('');
+
+// 3) SERVIÇOS: só os ativos. Se não houver nenhum, a seção continua escondida (atributo hidden).
+const { data: svcs } = await sb.from('services').select().eq('active', true);
+if (svcs?.length) {
+  document.getElementById('servicos').hidden = false;
+  document.getElementById('svcs').innerHTML = svcs.map((s) =>
+    `<div class="svc"><b>${esc(s.name)}</b>${s.price ? `<span>R$ ${Number(s.price).toFixed(2).replace('.', ',')}</span>` : ''}</div>`).join('');
+}
+</script></body></html>
